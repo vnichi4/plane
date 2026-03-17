@@ -45,20 +45,29 @@
   <button class="vb" onclick="setView(1.571,0.5,22)">SIDE</button>
   <button class="vb" onclick="setView(0,0.01,28)">TOP</button>
   <button class="vb" onclick="setView(2.4,0.35,20)">AFT</button>
+  <span style="color:#333;margin:0 2px">|</span>
+  <button class="vb" onclick="zoomIn()">＋ ZOOM</button>
+  <button class="vb" onclick="zoomOut()">－ ZOOM</button>
 </div>
 
 <div class="p tl">
   <div class="tt">Aircraft Dynamics</div>
   <div class="st">EASA Body-Axis Convention</div>
-  <div class="bx"><div class="lb">Attitude</div>
+  <div class="bx"><div class="lb">Attitude (body vs earth)</div>
     <div class="rw"><span style="color:#ff4455">Pitch</span><span class="vl" id="hP">0.0<span class="u">°</span></span></div>
     <div class="rw"><span style="color:#44dd55">Roll</span><span class="vl" id="hR">0.0<span class="u">°</span></span></div>
     <div class="rw"><span style="color:#4499ff">Yaw</span><span class="vl" id="hY">0.0<span class="u">°</span></span></div>
+    <div class="rw"><span style="color:#aaa;font-size:10px">Heading Δ</span><span class="vl" id="hHdg" style="font-size:11px">0.0<span class="u">°</span></span></div>
   </div>
   <div class="bx"><div class="lb">Body Axes from CG</div>
     <div class="rw"><span><span class="tg" style="background:#ff4455"></span>X Longitudinal</span><span style="font-size:9px;color:#4a5260">fwd</span></div>
     <div class="rw"><span><span class="tg" style="background:#44dd55"></span>Y Lateral</span><span style="font-size:9px;color:#4a5260">stbd</span></div>
     <div class="rw"><span><span class="tg" style="background:#4499ff"></span>Z Normal</span><span style="font-size:9px;color:#4a5260">down</span></div>
+  </div>
+  <div class="bx"><div class="lb">Earth Axes (fixed reference)</div>
+    <div class="rw"><span><span class="tg" style="background:#ff8888"></span>Xe North</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
+    <div class="rw"><span><span class="tg" style="background:#88ee88"></span>Ye East</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
+    <div class="rw"><span><span class="tg" style="background:#88aaff"></span>Ze Down</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
   </div>
 </div>
 
@@ -271,6 +280,34 @@ ac.add(mkLb('X','#ff4455',new THREE.Vector3(AL+0.7,0,0)));
 ac.add(mkLb('Y','#44dd55',new THREE.Vector3(0,0,AL+0.7)));
 ac.add(mkLb('Z','#4499ff',new THREE.Vector3(0,-(AL+0.7),0)));
 
+// ===== EARTH-FIXED AXES — continuous lines stretching edge to edge =====
+var EAL=200; // effectively infinite
+function mkEarthLine(d,c){
+  var mt=new THREE.LineDashedMaterial({color:c,dashSize:0.4,gapSize:0.2,transparent:true,opacity:0.25});
+  var pts=[d.clone().multiplyScalar(-EAL),d.clone().multiplyScalar(EAL)];
+  var geo=new THREE.BufferGeometry().setFromPoints(pts);
+  var ln=new THREE.Line(geo,mt);
+  ln.computeLineDistances();
+  return ln;
+}
+// Xe=North/fwd (+X), Ye=East/right (+Z), Ze=Down (-Y)
+scene.add(mkEarthLine(new THREE.Vector3(1,0,0),0xff8888));
+scene.add(mkEarthLine(new THREE.Vector3(0,0,1),0x88ee88));
+scene.add(mkEarthLine(new THREE.Vector3(0,-1,0),0x88aaff));
+
+// Small labels near the positive end, close enough to see
+function mkELb(t,c,p){
+  var cv=document.createElement('canvas');cv.width=160;cv.height=48;
+  var x=cv.getContext('2d');
+  x.font='bold 28px monospace';x.fillStyle=c;x.globalAlpha=0.5;
+  x.textAlign='center';x.textBaseline='middle';x.fillText(t,80,24);
+  var s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false}));
+  s.position.copy(p);s.scale.set(1.4,0.5,1);return s;
+}
+scene.add(mkELb('Xe','#ff8888',new THREE.Vector3(8,0,0)));
+scene.add(mkELb('Ye','#88ee88',new THREE.Vector3(0,0,8)));
+scene.add(mkELb('Ze','#88aaff',new THREE.Vector3(0,-8,0)));
+
 // ===== FORCE ARROWS =====
 function mkF(c,th,ei,op){
   var g=new THREE.Group();
@@ -329,6 +366,8 @@ var mYa=new MA(0x4499ff,new THREE.Vector3(0,-1,0));ac.add(mYa.g);
 // ===== CAMERA =====
 var oT=0.7,oP=0.55,oR=22,tT=0.7,tP=0.55,tR=22,isDrg=false,autoR=true,lm={x:0,y:0};
 window.setView=function(t,p,r){tT=t;tP=p;tR=r;autoR=false;document.getElementById('hint').style.opacity='0';};
+window.zoomIn=function(){tR=Math.max(8,tR-4);autoR=false;document.getElementById('hint').style.opacity='0';};
+window.zoomOut=function(){tR=Math.min(45,tR+4);autoR=false;document.getElementById('hint').style.opacity='0';};
 var cv=R.domElement;
 cv.addEventListener('mousedown',function(e){isDrg=true;autoR=false;lm={x:e.clientX,y:e.clientY};document.getElementById('hint').style.opacity='0';});
 cv.addEventListener('mousemove',function(e){if(!isDrg)return;oT-=(e.clientX-lm.x)*0.005;oP=Math.max(0.1,Math.min(Math.PI-0.1,oP-(e.clientY-lm.y)*0.005));tT=oT;tP=oP;lm={x:e.clientX,y:e.clientY};});
@@ -352,8 +391,6 @@ sP.oninput=function(e){C.p=+e.target.value;ud();};
 sR.oninput=function(e){C.r=+e.target.value;ud();};
 sY.oninput=function(e){C.y=+e.target.value;ud();};
 sT.oninput=function(e){C.t=+e.target.value;ud();};
-function sb(sl,k){var go=function(){C[k]*=0.88;if(Math.abs(C[k])<0.2)C[k]=0;sl.value=C[k];ud();if(Math.abs(C[k])>0.2)requestAnimationFrame(go);};sl.addEventListener('mouseup',function(){requestAnimationFrame(go);});sl.addEventListener('touchend',function(){requestAnimationFrame(go);});}
-sb(sP,'p');sb(sR,'r');sb(sY,'y');
 document.getElementById('resetBtn').onclick=function(){C.p=C.r=C.y=C.t=0;A.p=A.r=A.y=0;sP.value=sR.value=sY.value=sT.value=0;ud();autoR=true;tT=0.7;tP=0.55;tR=22;document.getElementById('hint').style.opacity='1';};
 var K={};
 window.onkeydown=function(e){K[e.key.toLowerCase()]=true;if(e.key==='Shift'||e.key==='Control')e.preventDefault();};
@@ -451,9 +488,14 @@ function loop(){
   cgB.scale.setScalar(1+Math.sin(t*3)*0.07);
 
   // HUD
+  // Compute heading: angle of body X projected onto horizontal plane vs earth Xe
+  var bodyFwd=new THREE.Vector3(1,0,0);
+  bodyFwd.applyQuaternion(ac.quaternion);
+  var hdg=Math.atan2(bodyFwd.z,bodyFwd.x)*180/Math.PI; // angle from earth Xe in horizontal plane
   document.getElementById('hP').innerHTML=A.p.toFixed(1)+'<span class="u">°</span>';
   document.getElementById('hR').innerHTML=A.r.toFixed(1)+'<span class="u">°</span>';
   document.getElementById('hY').innerHTML=A.y.toFixed(1)+'<span class="u">°</span>';
+  document.getElementById('hHdg').innerHTML=hdg.toFixed(1)+'<span class="u">°</span>';
   document.getElementById('fL').innerHTML=f.lift.toFixed(2)+'<span class="u">G</span>';
   document.getElementById('fLv').textContent=f.lV.toFixed(2);
   document.getElementById('fLh').textContent=f.lH.toFixed(2);
