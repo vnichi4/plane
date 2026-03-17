@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aircraft Forces & Moments</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#080c12;color:#ccc;font-family:'Outfit',sans-serif;overflow:hidden;height:100vh;width:100vw}
+  canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+  .p{position:fixed;z-index:10;pointer-events:none;font-family:'JetBrains Mono',monospace}
+  .tl{top:12px;left:12px}.tr{top:12px;right:12px;text-align:right}
+  .tt{font-family:'Outfit';font-size:17px;font-weight:700;color:#e4e8f0;letter-spacing:1.5px;text-transform:uppercase}
+  .st{font-size:8.5px;color:#4a5260;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px}
+  .bx{background:rgba(8,12,18,0.82);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.06);border-radius:7px;padding:8px 12px;margin-bottom:5px;min-width:185px}
+  .lb{font-size:8px;color:#4a5260;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}
+  .rw{display:flex;justify-content:space-between;align-items:center;height:20px}
+  .vl{font-size:12.5px;font-weight:500;color:#e0e4ec}
+  .vl .u{font-size:9px;color:#4a5260;margin-left:1px}
+  .tg{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .ct{position:fixed;bottom:0;left:0;right:0;z-index:10;display:flex;justify-content:center;gap:8px;padding:10px 14px 14px;background:linear-gradient(to top,rgba(8,12,18,0.97) 55%,transparent)}
+  .cd{background:rgba(16,22,32,0.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.06);border-radius:9px;padding:9px 13px;min-width:125px;pointer-events:all}
+  .cl{font-size:8px;color:#4a5260;letter-spacing:2px;text-transform:uppercase;text-align:center;margin-bottom:5px}
+  .cv{font-size:14px;font-weight:600;color:#e0e4ec;text-align:center;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+  input[type=range]{-webkit-appearance:none;width:100%;height:3px;border-radius:2px;background:#1a2030;outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#dde0e8;border:2px solid #252d3c;cursor:grab}
+  .ch{font-size:7px;color:#333a48;text-align:center;margin-top:2px;letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+  .rs{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#6a7280;font-family:'JetBrains Mono',monospace;font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer;pointer-events:all;align-self:center}
+  .rs:hover{background:rgba(255,255,255,0.08);color:#ccc}
+  .lg{position:fixed;bottom:100px;right:12px;z-index:10;pointer-events:none}
+  .li{font-family:'JetBrains Mono',monospace;font-size:9px;color:#5a6270;margin-bottom:2px;display:flex;align-items:center;gap:5px}
+  .ld{width:14px;height:3px;border-radius:1px}
+  .ht{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.1);letter-spacing:2px;pointer-events:none;transition:opacity 2s}
+  .vw{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:4px;pointer-events:all}
+  .vb{background:rgba(16,22,32,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);color:#5a6270;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1px;padding:5px 10px;border-radius:5px;cursor:pointer;transition:all 0.2s}
+  .vb:hover{background:rgba(255,255,255,0.08);color:#ccc;border-color:rgba(255,255,255,0.15)}
+</style>
+</head>
+<body>
+
+<div class="vw">
+  <button class="vb" onclick="setView(0.7,0.55,22)">3/4</button>
+  <button class="vb" onclick="setView(0,0.5,22)">FRONT</button>
+  <button class="vb" onclick="setView(1.571,0.5,22)">SIDE</button>
+  <button class="vb" onclick="setView(0,0.01,28)">TOP</button>
+  <button class="vb" onclick="setView(2.4,0.35,20)">AFT</button>
+</div>
+
+<div class="p tl">
+  <div class="tt">Aircraft Dynamics</div>
+  <div class="st">EASA Body-Axis Convention</div>
+  <div class="bx"><div class="lb">Attitude</div>
+    <div class="rw"><span style="color:#ff4455">Pitch</span><span class="vl" id="hP">0.0<span class="u">°</span></span></div>
+    <div class="rw"><span style="color:#44dd55">Roll</span><span class="vl" id="hR">0.0<span class="u">°</span></span></div>
+    <div class="rw"><span style="color:#4499ff">Yaw</span><span class="vl" id="hY">0.0<span class="u">°</span></span></div>
+  </div>
+  <div class="bx"><div class="lb">Body Axes from CG</div>
+    <div class="rw"><span><span class="tg" style="background:#ff4455"></span>X Longitudinal</span><span style="font-size:9px;color:#4a5260">fwd</span></div>
+    <div class="rw"><span><span class="tg" style="background:#44dd55"></span>Y Lateral</span><span style="font-size:9px;color:#4a5260">stbd</span></div>
+    <div class="rw"><span><span class="tg" style="background:#4499ff"></span>Z Normal</span><span style="font-size:9px;color:#4a5260">down</span></div>
+  </div>
+</div>
+
+<div class="p tr">
+  <div class="bx"><div class="lb">Forces</div>
+    <div class="rw"><span style="color:#00ddff">Lift</span><span class="vl" id="fL">1.00<span class="u">G</span></span></div>
+    <div class="rw"><span style="color:#88eeff;font-size:10px">&nbsp;↕ L·cosφ</span><span class="vl" id="fLv" style="font-size:11px">1.00</span></div>
+    <div class="rw"><span style="color:#88eeff;font-size:10px">&nbsp;↔ L·sinφ</span><span class="vl" id="fLh" style="font-size:11px">0.00</span></div>
+    <div class="rw"><span style="color:#ffbb22">Weight</span><span class="vl" id="fW">1.00<span class="u">G</span></span></div>
+    <div class="rw"><span style="color:#ffe088;font-size:10px">&nbsp;⊥ W·cosγ</span><span class="vl" id="fWp" style="font-size:11px">1.00</span></div>
+    <div class="rw"><span style="color:#ffe088;font-size:10px">&nbsp;∥ W·sinγ</span><span class="vl" id="fWa" style="font-size:11px">0.00</span></div>
+    <div class="rw"><span style="color:#66ff55">Thrust</span><span class="vl" id="fT">0<span class="u">%</span></span></div>
+    <div class="rw"><span style="color:#ff5555">Drag</span><span class="vl" id="fD">0.00</span></div>
+    <div class="rw"><span style="color:#dd88ff">Sideforce <span style="color:#4a5260;font-size:8px">fin</span></span><span class="vl" id="fS">0.00</span></div>
+    <div class="rw"><span style="color:#ff9966">Tail lift <span style="color:#4a5260;font-size:8px">tailplane</span></span><span class="vl" id="fTL">0.00</span></div>
+  </div>
+  <div class="bx"><div class="lb">Moments about CG</div>
+    <div class="rw"><span style="color:#ff4455">L <span style="color:#4a5260;font-size:8px">roll·X</span></span><span class="vl" id="mL">0.00</span></div>
+    <div class="rw"><span style="color:#44dd55">M <span style="color:#4a5260;font-size:8px">pitch·Y</span></span><span class="vl" id="mM">0.00</span></div>
+    <div class="rw"><span style="color:#4499ff">N <span style="color:#4a5260;font-size:8px">yaw·Z</span></span><span class="vl" id="mN">0.00</span></div>
+  </div>
+  <div class="bx"><div class="lb">Load Factor</div>
+    <div class="rw"><span style="color:#e0e4ec">n</span><span class="vl" id="nZ">1.00<span class="u">G</span></span></div>
+  </div>
+</div>
+
+<div class="lg">
+  <div class="li"><span class="ld" style="background:#00ddff"></span>Lift (body −Z)</div>
+  <div class="li"><span class="ld" style="background:#88eeff"></span>Lift resolved</div>
+  <div class="li"><span class="ld" style="background:#ffbb22"></span>Weight (earth ↓)</div>
+  <div class="li"><span class="ld" style="background:#ffe088"></span>Weight resolved</div>
+  <div class="li"><span class="ld" style="background:#66ff55"></span>Thrust (+X)</div>
+  <div class="li"><span class="ld" style="background:#ff5555"></span>Drag (−X)</div>
+  <div class="li"><span class="ld" style="background:#dd88ff"></span>Sideforce (fin)</div>
+  <div class="li"><span class="ld" style="background:#ff9966"></span>Tail lift</div>
+  <div class="li"><span style="width:8px;height:8px;border-radius:50%;background:#ffdd00;flex-shrink:0"></span>CG</div>
+</div>
+
+<div class="ht" id="hint">drag to orbit · scroll to zoom · W/S A/D Q/E Shift/Ctrl</div>
+
+<div class="ct">
+  <div class="cd"><div class="cl">Elevator</div><div class="cv" id="dP">0°</div><input type="range" id="sP" min="-30" max="30" value="0" step="0.5"><div class="ch">W / S</div></div>
+  <div class="cd"><div class="cl">Ailerons</div><div class="cv" id="dR">0°</div><input type="range" id="sR" min="-45" max="45" value="0" step="0.5"><div class="ch">A / D</div></div>
+  <div class="cd"><div class="cl">Rudder</div><div class="cv" id="dY">0°</div><input type="range" id="sY" min="-30" max="30" value="0" step="0.5"><div class="ch">Q / E</div></div>
+  <div class="cd"><div class="cl">Thrust</div><div class="cv" id="dT">0%</div><input type="range" id="sT" min="0" max="100" value="0" step="1"><div class="ch">Shift / Ctrl</div></div>
+  <button class="rs" id="resetBtn">RESET</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+// ===== RENDERER =====
+var R = new THREE.WebGLRenderer({antialias:true});
+R.setSize(window.innerWidth,window.innerHeight);
+R.setPixelRatio(Math.min(window.devicePixelRatio,2));
+R.toneMapping = THREE.ACESFilmicToneMapping;
+R.toneMappingExposure = 1.0;
+document.body.prepend(R.domElement);
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080c14);
+scene.fog = new THREE.FogExp2(0x080c14,0.006);
+var cam = new THREE.PerspectiveCamera(42,window.innerWidth/window.innerHeight,0.1,800);
+
+// Stars
+var sA=new Float32Array(4500);
+for(var i=0;i<4500;i+=3){var r2=120+Math.random()*350,t2=Math.random()*6.283,p2=Math.acos(Math.random()*2-1);sA[i]=r2*Math.sin(p2)*Math.cos(t2);sA[i+1]=Math.abs(r2*Math.cos(p2));sA[i+2]=r2*Math.sin(p2)*Math.sin(t2);}
+var sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(sA,3));
+scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.4,transparent:true,opacity:0.3})));
+var gr=new THREE.GridHelper(80,40,0x152030,0x0c1520);gr.position.y=-10;scene.add(gr);
+
+// Lights
+scene.add(new THREE.AmbientLight(0x334466,0.6));
+var sl=new THREE.DirectionalLight(0xfff0dd,1.5);sl.position.set(8,16,6);scene.add(sl);
+var fl=new THREE.DirectionalLight(0x5577aa,0.4);fl.position.set(-6,4,-8);scene.add(fl);
+var rl=new THREE.DirectionalLight(0x445588,0.25);rl.position.set(0,2,12);scene.add(rl);
+
+// ===== AIRCRAFT =====
+var ac = new THREE.Group();
+scene.add(ac);
+var CG = new THREE.Vector3(0,0,0);
+var FIN_P = new THREE.Vector3(-5.8,1.0,0);
+var TAIL_P = new THREE.Vector3(-5.8,0.19,0);
+
+// Materials
+var mB = new THREE.MeshPhysicalMaterial({color:0xdde0e8,metalness:0.12,roughness:0.32,transparent:true,opacity:0.45,depthWrite:false});
+var mW = new THREE.MeshPhysicalMaterial({color:0xd0d4de,metalness:0.08,roughness:0.38,transparent:true,opacity:0.40,depthWrite:false});
+var mG = new THREE.MeshPhysicalMaterial({color:0x55bbee,metalness:0.6,roughness:0.05,transparent:true,opacity:0.4});
+var mE = new THREE.MeshStandardMaterial({color:0x555566,metalness:0.5,roughness:0.3,transparent:true,opacity:0.5});
+var mI = new THREE.MeshStandardMaterial({color:0x222233,metalness:0.8,roughness:0.15});
+var mAil = new THREE.MeshStandardMaterial({color:0xff2222,emissive:0xee1111,emissiveIntensity:0.3});
+var mElv = new THREE.MeshStandardMaterial({color:0xff5511,emissive:0xee4400,emissiveIntensity:0.3});
+var mRud = new THREE.MeshStandardMaterial({color:0x2266ff,emissive:0x1155ee,emissiveIntensity:0.3});
+
+// ===== FUSELAGE — lathe =====
+var fp=[[-7,0.01],[-6.2,0.08],[-5.5,0.15],[-4.8,0.25],[-4,0.35],[-3,0.44],[-2,0.50],[-1,0.54],[0,0.55],[1,0.55],[2,0.54],[3,0.50],[3.8,0.42],[4.5,0.30],[5,0.18],[5.5,0]];
+var lv=[];for(var j=0;j<fp.length;j++)lv.push(new THREE.Vector2(fp[j][1],fp[j][0]));
+var fm=new THREE.Mesh(new THREE.LatheGeometry(lv,24),mB);
+fm.rotation.z=-Math.PI/2;
+ac.add(fm);
+
+// Cockpit
+var ck=new THREE.Mesh(new THREE.SphereGeometry(0.40,14,10,0,Math.PI*2,0,Math.PI*0.42),mG);
+ck.position.set(4,0.30,0);ck.scale.set(1,0.7,0.8);ac.add(ck);
+
+// ===== WINGS — simple boxes, start OUTSIDE fuselage (radius 0.55) =====
+var ailR,ailL,elvR,elvL,rudG;
+
+function mkWing(s){
+  // s: 1=right, -1=left
+  var zStart=0.65, span=4.8;
+  // Main wing
+  var w=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.09,span),mW);
+  w.position.set(0.1,-0.08,s*(zStart+span/2));
+  ac.add(w);
+
+  // Rounded wingtip cap — half cylinder
+  var tipGeo=new THREE.CylinderGeometry(0.045,0.045,1.0,8,1,false,0,Math.PI);
+  var tip=new THREE.Mesh(tipGeo,mW);
+  tip.rotation.x=Math.PI/2;
+  tip.rotation.z=Math.PI/2;
+  tip.position.set(0.1,-0.035,s*(zStart+span+0.01));
+  if(s<0) tip.rotation.z=-Math.PI/2;
+  ac.add(tip);
+
+  // Aileron — at outer part of wing, hinge at LE (front edge)
+  // Hinge line runs spanwise (along Z). Deflection = rotation around Z.
+  // Mesh is offset aft (-X) from hinge.
+  var ag=new THREE.Group();
+  ag.position.set(-0.6,-0.06,s*(zStart+span*0.72));
+  var am=new THREE.Mesh(new THREE.BoxGeometry(0.65,0.10,span*0.42),mAil);
+  am.position.set(-0.325,0,0);
+  ag.add(am);
+  ac.add(ag);
+  if(s>0)ailR=ag;else ailL=ag;
+
+  // Engine
+  var ez=s*(zStart+1.6);
+  var nc=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,1.5,14),mE);
+  nc.rotation.z=Math.PI/2;nc.position.set(0.5,-0.42,ez);ac.add(nc);
+  var it=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.022,8,16),mI);
+  it.rotation.y=Math.PI/2;it.position.set(1.25,-0.42,ez);ac.add(it);
+  var py=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.28,0.04),mE);
+  py.position.set(0.4,-0.24,ez);ac.add(py);
+}
+mkWing(1);mkWing(-1);
+
+// ===== HORIZONTAL STABILIZER =====
+function mkTailH(s){
+  var zStart=0.15, span=1.7;
+  var t=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.05,span),mW);
+  t.position.set(-5.6,0.18,s*(zStart+span/2));
+  ac.add(t);
+
+  // Elevator — hinge spanwise (Z axis), mesh offset aft
+  var eg=new THREE.Group();
+  eg.position.set(-6.2,0.19,s*(zStart+span/2));
+  var em=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.07,span*0.9),mElv);
+  em.position.set(-0.275,0,0);
+  eg.add(em);
+  ac.add(eg);
+  if(s>0)elvR=eg;else elvL=eg;
+}
+mkTailH(1);mkTailH(-1);
+
+// ===== VERTICAL STABILIZER =====
+// Use a simple trapezoid shape extruded thin
+var vs=new THREE.Shape();
+vs.moveTo(0,0);vs.lineTo(-0.5,2.0);vs.lineTo(-1.4,2.0);vs.lineTo(-1.8,0);vs.closePath();
+var vg=new THREE.ExtrudeGeometry(vs,{depth:0.06,bevelEnabled:false});
+var vm=new THREE.Mesh(vg,mW);
+vm.position.set(-4.8,0.12,-0.03);
+ac.add(vm);
+
+// Rudder — hinge vertical (Y axis), mesh offset aft
+rudG=new THREE.Group();
+rudG.position.set(-6.2,1.1,0);
+var rm=new THREE.Mesh(new THREE.BoxGeometry(0.7,1.85,0.07),mRud);
+rm.position.set(-0.35,0,0);
+rudG.add(rm);
+ac.add(rudG);
+
+// ===== CG =====
+var cgB=new THREE.Mesh(new THREE.SphereGeometry(0.22,16,16),new THREE.MeshStandardMaterial({color:0xffdd00,emissive:0xffdd00,emissiveIntensity:0.8}));
+cgB.position.copy(CG);ac.add(cgB);
+var cgR=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.018,8,32),new THREE.MeshStandardMaterial({color:0xffdd00,emissive:0xffdd00,emissiveIntensity:0.5}));
+cgR.position.copy(CG);ac.add(cgR);
+
+// ===== BODY AXES =====
+var AL=6;
+function mkAx(d,c){
+  var g=new THREE.Group(),m=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:0.3});
+  var s=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,AL,6),m);
+  var q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
+  s.quaternion.copy(q);s.position.copy(d.clone().multiplyScalar(AL/2));g.add(s);
+  var cn=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.32,6),m.clone());
+  cn.quaternion.copy(q);cn.position.copy(d.clone().multiplyScalar(AL+0.15));g.add(cn);
+  var dm=new THREE.LineDashedMaterial({color:c,dashSize:0.15,gapSize:0.1});
+  var dg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),d.clone().multiplyScalar(-AL*0.5)]);
+  var dl=new THREE.Line(dg,dm);dl.computeLineDistances();g.add(dl);
+  g.position.copy(CG);return g;
+}
+ac.add(mkAx(new THREE.Vector3(1,0,0),0xff4455));
+ac.add(mkAx(new THREE.Vector3(0,0,1),0x44dd55));
+ac.add(mkAx(new THREE.Vector3(0,-1,0),0x4499ff));
+function mkLb(t,c,p){var cv=document.createElement('canvas');cv.width=96;cv.height=48;var x=cv.getContext('2d');x.font='bold 36px monospace';x.fillStyle=c;x.textAlign='center';x.textBaseline='middle';x.fillText(t,48,24);var s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false}));s.position.copy(p);s.scale.set(1,0.5,1);return s;}
+ac.add(mkLb('X','#ff4455',new THREE.Vector3(AL+0.7,0,0)));
+ac.add(mkLb('Y','#44dd55',new THREE.Vector3(0,0,AL+0.7)));
+ac.add(mkLb('Z','#4499ff',new THREE.Vector3(0,-(AL+0.7),0)));
+
+// ===== FORCE ARROWS =====
+function mkF(c,th,ei,op){
+  var g=new THREE.Group();
+  var mt=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:ei||0.6,transparent:(op||1)<1,opacity:op||1});
+  var sh=new THREE.Mesh(new THREE.CylinderGeometry(th,th,1,8),mt);g.add(sh);
+  var hs=th*2.8;
+  var hd=new THREE.Mesh(new THREE.ConeGeometry(hs,hs*2.5,8),mt.clone());g.add(hd);
+  g.userData.sh=sh;g.userData.hd=hd;g.userData.hs=hs;
+  g.userData.setLen=function(l){l=Math.max(0,l);if(l<0.05){sh.visible=false;hd.visible=false;return;}sh.visible=true;hd.visible=true;sh.scale.y=l;sh.position.y=l/2;hd.position.y=l+this.hs*1.2;};
+  return g;
+}
+function ori(g,d){g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());}
+
+// Main forces
+var aLift=mkF(0x00ddff,0.07,0.6,1);ori(aLift,new THREE.Vector3(0,1,0));aLift.position.copy(CG);ac.add(aLift);
+var aThrust=mkF(0x66ff55,0.07,0.6,1);ori(aThrust,new THREE.Vector3(1,0,0));aThrust.position.copy(CG);ac.add(aThrust);
+var aDrag=mkF(0xff5555,0.07,0.6,1);ori(aDrag,new THREE.Vector3(-1,0,0));aDrag.position.copy(CG);ac.add(aDrag);
+var aSide=mkF(0xdd88ff,0.055,0.5,0.9);aSide.position.copy(FIN_P);ac.add(aSide);
+var aTailL=mkF(0xff9966,0.05,0.45,0.85);aTailL.position.copy(TAIL_P);ac.add(aTailL);
+var aWeight=mkF(0xffbb22,0.07,0.6,1);ori(aWeight,new THREE.Vector3(0,-1,0));scene.add(aWeight);
+
+// Resolved
+var aLV=mkF(0x88eeff,0.032,0.3,0.65);ori(aLV,new THREE.Vector3(0,1,0));scene.add(aLV);
+var aLH=mkF(0x88eeff,0.032,0.3,0.65);scene.add(aLH);
+var aWP=mkF(0xffe088,0.032,0.3,0.65);ori(aWP,new THREE.Vector3(0,-1,0));aWP.position.copy(CG);ac.add(aWP);
+var aWA=mkF(0xffe088,0.032,0.3,0.65);ori(aWA,new THREE.Vector3(-1,0,0));aWA.position.copy(CG);ac.add(aWA);
+
+// ===== MOMENT ARCS =====
+function MA(c,av){
+  this.av=av.clone().normalize();this.g=new THREE.Group();this.g.position.copy(CG);
+  this.mt=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:0.5});
+  this.am=null;
+  this.tp=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.3,6),this.mt.clone());
+  this.tp.visible=false;this.g.add(this.tp);
+  var up=new THREE.Vector3(0,1,0);if(Math.abs(this.av.dot(up))>0.9)up=new THREE.Vector3(1,0,0);
+  this.u=new THREE.Vector3().crossVectors(this.av,up).normalize();
+  this.v=new THREE.Vector3().crossVectors(this.av,this.u).normalize();
+}
+MA.prototype.upd=function(val){
+  var ab=Math.abs(val),nm=Math.min(1,ab/3),sw=nm*Math.PI*1.8;
+  if(this.am){this.g.remove(this.am);this.am.geometry.dispose();this.am=null;}
+  if(nm<0.01){this.tp.visible=false;return;}
+  var d=val>0?1:-1,r=1.4,sg=Math.max(6,Math.floor(sw*10)),pts=[];
+  for(var i=0;i<=sg;i++){var a=(i/sg)*sw*d,p=new THREE.Vector3();p.addScaledVector(this.u,Math.cos(a)*r);p.addScaledVector(this.v,Math.sin(a)*r);pts.push(p);}
+  this.am=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),sg,0.04,6,false),this.mt);
+  this.g.add(this.am);
+  var ea=sw*d;this.tp.visible=true;
+  var tp2=new THREE.Vector3();tp2.addScaledVector(this.u,Math.cos(ea)*r);tp2.addScaledVector(this.v,Math.sin(ea)*r);this.tp.position.copy(tp2);
+  var tn=new THREE.Vector3();tn.addScaledVector(this.u,-Math.sin(ea)*d);tn.addScaledVector(this.v,Math.cos(ea)*d);tn.normalize();
+  this.tp.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),tn);
+};
+var mRo=new MA(0xff4455,new THREE.Vector3(1,0,0));ac.add(mRo.g);
+var mPi=new MA(0x44dd55,new THREE.Vector3(0,0,1));ac.add(mPi.g);
+var mYa=new MA(0x4499ff,new THREE.Vector3(0,-1,0));ac.add(mYa.g);
+
+// ===== CAMERA =====
+var oT=0.7,oP=0.55,oR=22,tT=0.7,tP=0.55,tR=22,isDrg=false,autoR=true,lm={x:0,y:0};
+window.setView=function(t,p,r){tT=t;tP=p;tR=r;autoR=false;document.getElementById('hint').style.opacity='0';};
+var cv=R.domElement;
+cv.addEventListener('mousedown',function(e){isDrg=true;autoR=false;lm={x:e.clientX,y:e.clientY};document.getElementById('hint').style.opacity='0';});
+cv.addEventListener('mousemove',function(e){if(!isDrg)return;oT-=(e.clientX-lm.x)*0.005;oP=Math.max(0.1,Math.min(Math.PI-0.1,oP-(e.clientY-lm.y)*0.005));tT=oT;tP=oP;lm={x:e.clientX,y:e.clientY};});
+cv.addEventListener('mouseup',function(){isDrg=false;});
+cv.addEventListener('mouseleave',function(){isDrg=false;});
+cv.addEventListener('wheel',function(e){oR=Math.max(8,Math.min(45,oR+e.deltaY*0.02));tR=oR;autoR=false;document.getElementById('hint').style.opacity='0';},{passive:true});
+cv.addEventListener('touchstart',function(e){if(e.touches.length===1){isDrg=true;autoR=false;lm={x:e.touches[0].clientX,y:e.touches[0].clientY};document.getElementById('hint').style.opacity='0';}},{passive:true});
+cv.addEventListener('touchmove',function(e){if(!isDrg||e.touches.length!==1)return;oT-=(e.touches[0].clientX-lm.x)*0.005;oP=Math.max(0.1,Math.min(Math.PI-0.1,oP-(e.touches[0].clientY-lm.y)*0.005));tT=oT;tP=oP;lm={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+cv.addEventListener('touchend',function(){isDrg=false;});
+
+// ===== CONTROLS =====
+var C={p:0,r:0,y:0,t:0},A={p:0,r:0,y:0},SM=0.045;
+var sP=document.getElementById('sP'),sR=document.getElementById('sR'),sY=document.getElementById('sY'),sT=document.getElementById('sT');
+function ud(){
+  document.getElementById('dP').textContent=C.p.toFixed(1)+'°';
+  document.getElementById('dR').textContent=C.r.toFixed(1)+'°';
+  document.getElementById('dY').textContent=C.y.toFixed(1)+'°';
+  document.getElementById('dT').textContent=Math.round(C.t)+'%';
+}
+sP.oninput=function(e){C.p=+e.target.value;ud();};
+sR.oninput=function(e){C.r=+e.target.value;ud();};
+sY.oninput=function(e){C.y=+e.target.value;ud();};
+sT.oninput=function(e){C.t=+e.target.value;ud();};
+function sb(sl,k){var go=function(){C[k]*=0.88;if(Math.abs(C[k])<0.2)C[k]=0;sl.value=C[k];ud();if(Math.abs(C[k])>0.2)requestAnimationFrame(go);};sl.addEventListener('mouseup',function(){requestAnimationFrame(go);});sl.addEventListener('touchend',function(){requestAnimationFrame(go);});}
+sb(sP,'p');sb(sR,'r');sb(sY,'y');
+document.getElementById('resetBtn').onclick=function(){C.p=C.r=C.y=C.t=0;A.p=A.r=A.y=0;sP.value=sR.value=sY.value=sT.value=0;ud();autoR=true;tT=0.7;tP=0.55;tR=22;document.getElementById('hint').style.opacity='1';};
+var K={};
+window.onkeydown=function(e){K[e.key.toLowerCase()]=true;if(e.key==='Shift'||e.key==='Control')e.preventDefault();};
+window.onkeyup=function(e){K[e.key.toLowerCase()]=false;};
+function kb(){
+  var r=0.8;
+  if(K['w']||K['arrowup']){C.p=Math.max(-30,C.p-r);sP.value=C.p;}
+  if(K['s']||K['arrowdown']){C.p=Math.min(30,C.p+r);sP.value=C.p;}
+  if(K['a']||K['arrowleft']){C.r=Math.max(-45,C.r-r);sR.value=C.r;}
+  if(K['d']||K['arrowright']){C.r=Math.min(45,C.r+r);sR.value=C.r;}
+  if(K['q']){C.y=Math.max(-30,C.y-r);sY.value=C.y;}
+  if(K['e']){C.y=Math.min(30,C.y+r);sY.value=C.y;}
+  if(K['shift']){C.t=Math.min(100,C.t+0.8);sT.value=C.t;}
+  if(K['control']){C.t=Math.max(0,C.t-0.8);sT.value=C.t;}
+  ud();
+}
+
+// ===== PHYSICS =====
+function phys(p,r,y,t){
+  var pr=p*Math.PI/180,rr=r*Math.PI/180,T=t/100;
+  var cp=Math.cos(pr),sp=Math.sin(pr),cr=Math.cos(rr),sr=Math.sin(rr);
+  var n=1/Math.max(0.15,cr*cp);
+  return{lift:n,wt:1,thr:T,drg:0.12+T*0.4+(n-1)*0.3,n:n,
+    sf:y*0.012,tl:-p*0.025,
+    Lm:r*0.06,Mm:p*0.05+(T-0.5)*0.02,Nm:y*0.06+r*0.02,
+    lV:n*cr,lH:n*Math.abs(sr),wP:cp,wA:Math.abs(sp)};
+}
+
+// ===== ANIMATE =====
+var clk=new THREE.Clock();
+function loop(){
+  requestAnimationFrame(loop);
+  var t=clk.getElapsedTime();
+  kb();
+
+  A.p+=(C.p-A.p)*SM; A.r+=(C.r-A.r)*SM; A.y+=(C.y-A.y)*SM;
+  ac.quaternion.setFromEuler(new THREE.Euler(-A.r*Math.PI/180,-A.y*Math.PI/180,-A.p*Math.PI/180,'YZX'));
+
+  // === CONTROL SURFACE DEFLECTIONS ===
+  // All surfaces: hinge at leading edge, mesh behind it (offset -X).
+  // rotation.z positive = trailing edge goes DOWN (aft part swings down in XY)
+  // rotation.z negative = trailing edge goes UP
+
+  // Ailerons: right roll (C.r>0) → right aileron TE UP → negative rot.z
+  //                                 left aileron TE DOWN → positive rot.z
+  var ailDeg = C.r * 0.6; // max ~27 deg deflection at full stick
+  ailR.rotation.z = -ailDeg * Math.PI/180;
+  ailL.rotation.z =  ailDeg * Math.PI/180;
+
+  // Elevators: pitch up (C.p>0) → elevator TE UP → negative rot.z
+  var elvDeg = C.p * 0.8; // max ~24 deg at full pull
+  elvR.rotation.z = -elvDeg * Math.PI/180;
+  elvL.rotation.z = -elvDeg * Math.PI/180;
+
+  // Rudder: hinge is vertical (Y axis), mesh offset aft (-X).
+  // rotation.y positive = TE swings to -Z (port). That's what yaw LEFT does.
+  // Yaw RIGHT (C.y>0) → rudder TE to PORT → positive rot.y
+  var rudDeg = C.y * 0.8; // max ~24 deg
+  rudG.rotation.y = rudDeg * Math.PI/180;
+
+  // Weight — earth-fixed
+  var wP=new THREE.Vector3();cgB.getWorldPosition(wP);aWeight.position.copy(wP);
+
+  var f=phys(A.p,A.r,A.y,C.t);
+  var FS=4.5;
+
+  aLift.userData.setLen(f.lift*FS);
+  aWeight.userData.setLen(f.wt*FS);
+  aThrust.userData.setLen(f.thr*FS*2);
+  aDrag.userData.setLen(f.drg*FS*1.5);
+
+  // Sideforce at fin
+  var sfa=Math.abs(f.sf);
+  if(sfa>0.005){ori(aSide,f.sf>0?new THREE.Vector3(0,0,1):new THREE.Vector3(0,0,-1));aSide.userData.setLen(sfa*FS*1.2);}else aSide.userData.setLen(0);
+
+  // Tail lift
+  var tla=Math.abs(f.tl);
+  if(tla>0.005){ori(aTailL,f.tl>0?new THREE.Vector3(0,1,0):new THREE.Vector3(0,-1,0));aTailL.userData.setLen(tla*FS*1.5);}else aTailL.userData.setLen(0);
+
+  // Resolved lift
+  aLV.position.copy(wP);ori(aLV,new THREE.Vector3(0,1,0));aLV.userData.setLen(f.lV*FS);
+  var br=new THREE.Vector3(0,0,1);br.applyQuaternion(ac.quaternion);br.y=0;
+  if(br.length()>0.01)br.normalize();else br.set(0,0,1);
+  aLH.position.copy(wP);ori(aLH,br);aLH.userData.setLen(f.lH*FS);
+
+  // Resolved weight
+  aWP.userData.setLen(f.wP*FS);
+  aWA.userData.setLen(f.wA*FS);
+
+  // Moments
+  mRo.upd(f.Lm);mPi.upd(f.Mm);mYa.upd(f.Nm);
+
+  // CG pulse
+  cgR.rotation.x=t*0.5;cgR.rotation.z=t*0.3;
+  cgB.scale.setScalar(1+Math.sin(t*3)*0.07);
+
+  // HUD
+  document.getElementById('hP').innerHTML=A.p.toFixed(1)+'<span class="u">°</span>';
+  document.getElementById('hR').innerHTML=A.r.toFixed(1)+'<span class="u">°</span>';
+  document.getElementById('hY').innerHTML=A.y.toFixed(1)+'<span class="u">°</span>';
+  document.getElementById('fL').innerHTML=f.lift.toFixed(2)+'<span class="u">G</span>';
+  document.getElementById('fLv').textContent=f.lV.toFixed(2);
+  document.getElementById('fLh').textContent=f.lH.toFixed(2);
+  document.getElementById('fW').innerHTML=f.wt.toFixed(2)+'<span class="u">G</span>';
+  document.getElementById('fWp').textContent=f.wP.toFixed(2);
+  document.getElementById('fWa').textContent=f.wA.toFixed(2);
+  document.getElementById('fT').innerHTML=Math.round(C.t)+'<span class="u">%</span>';
+  document.getElementById('fD').textContent=f.drg.toFixed(2);
+  document.getElementById('fS').textContent=f.sf.toFixed(2);
+  document.getElementById('fTL').textContent=f.tl.toFixed(2);
+  document.getElementById('mL').textContent=f.Lm.toFixed(2);
+  document.getElementById('mM').textContent=f.Mm.toFixed(2);
+  document.getElementById('mN').textContent=f.Nm.toFixed(2);
+  document.getElementById('nZ').innerHTML=f.n.toFixed(2)+'<span class="u">G</span>';
+
+  // Camera smooth
+  if(autoR){tT+=0.0015;oT=tT;}
+  oT+=(tT-oT)*0.08;oP+=(tP-oP)*0.08;oR+=(tR-oR)*0.08;
+  cam.position.set(oR*Math.sin(oP)*Math.cos(oT),oR*Math.cos(oP),oR*Math.sin(oP)*Math.sin(oT));
+  cam.lookAt(0,0,0);
+  R.render(scene,cam);
+}
+loop();
+
+window.addEventListener('resize',function(){cam.aspect=window.innerWidth/window.innerHeight;cam.updateProjectionMatrix();R.setSize(window.innerWidth,window.innerHeight);});
+setTimeout(function(){if(autoR)document.getElementById('hint').style.opacity='0.05';},5000);
+})();
+</script>
+</body>
+</html>
