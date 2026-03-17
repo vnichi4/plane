@@ -35,6 +35,7 @@
   .vw{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:4px;pointer-events:all}
   .vb{background:rgba(16,22,32,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);color:#5a6270;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1px;padding:5px 10px;border-radius:5px;cursor:pointer;transition:all 0.2s}
   .vb:hover{background:rgba(255,255,255,0.08);color:#ccc;border-color:rgba(255,255,255,0.15)}
+  .vb.active{background:rgba(255,255,255,0.1);color:#ddd;border-color:rgba(255,255,255,0.2)}
 </style>
 </head>
 <body>
@@ -46,8 +47,12 @@
   <button class="vb" onclick="setView(0,0.01,28)">TOP</button>
   <button class="vb" onclick="setView(2.4,0.35,20)">AFT</button>
   <span style="color:#333;margin:0 2px">|</span>
-  <button class="vb" onclick="zoomIn()">＋ ZOOM</button>
-  <button class="vb" onclick="zoomOut()">－ ZOOM</button>
+  <button class="vb" onclick="zoomIn()">＋</button>
+  <button class="vb" onclick="zoomOut()">－</button>
+  <span style="color:#333;margin:0 2px">|</span>
+  <button class="vb active" id="tbF" onclick="tog('f')">FORCES</button>
+  <button class="vb active" id="tbM" onclick="tog('m')">MOMENTS</button>
+  <button class="vb active" id="tbR" onclick="tog('r')">RESOLVED</button>
 </div>
 
 <div class="p tl">
@@ -65,9 +70,9 @@
     <div class="rw"><span><span class="tg" style="background:#4499ff"></span>Z Normal</span><span style="font-size:9px;color:#4a5260">down</span></div>
   </div>
   <div class="bx"><div class="lb">Earth Axes (fixed reference)</div>
-    <div class="rw"><span><span class="tg" style="background:#ff8888"></span>Xe North</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
-    <div class="rw"><span><span class="tg" style="background:#88ee88"></span>Ye East</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
-    <div class="rw"><span><span class="tg" style="background:#88aaff"></span>Ze Down</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
+    <div class="rw"><span><span class="tg" style="background:#ff9999"></span>Xe North</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
+    <div class="rw"><span><span class="tg" style="background:#99ff99"></span>Ye East</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
+    <div class="rw"><span><span class="tg" style="background:#99bbff"></span>Ze Down</span><span style="font-size:9px;color:#4a5260">fixed</span></div>
   </div>
 </div>
 
@@ -283,7 +288,7 @@ ac.add(mkLb('Z','#4499ff',new THREE.Vector3(0,-(AL+0.7),0)));
 // ===== EARTH-FIXED AXES — continuous lines stretching edge to edge =====
 var EAL=200; // effectively infinite
 function mkEarthLine(d,c){
-  var mt=new THREE.LineDashedMaterial({color:c,dashSize:0.4,gapSize:0.2,transparent:true,opacity:0.25});
+  var mt=new THREE.LineDashedMaterial({color:c,dashSize:0.5,gapSize:0.25,transparent:true,opacity:0.55,linewidth:1});
   var pts=[d.clone().multiplyScalar(-EAL),d.clone().multiplyScalar(EAL)];
   var geo=new THREE.BufferGeometry().setFromPoints(pts);
   var ln=new THREE.Line(geo,mt);
@@ -291,22 +296,22 @@ function mkEarthLine(d,c){
   return ln;
 }
 // Xe=North/fwd (+X), Ye=East/right (+Z), Ze=Down (-Y)
-scene.add(mkEarthLine(new THREE.Vector3(1,0,0),0xff8888));
-scene.add(mkEarthLine(new THREE.Vector3(0,0,1),0x88ee88));
-scene.add(mkEarthLine(new THREE.Vector3(0,-1,0),0x88aaff));
+scene.add(mkEarthLine(new THREE.Vector3(1,0,0),0xff9999));
+scene.add(mkEarthLine(new THREE.Vector3(0,0,1),0x99ff99));
+scene.add(mkEarthLine(new THREE.Vector3(0,-1,0),0x99bbff));
 
 // Small labels near the positive end, close enough to see
 function mkELb(t,c,p){
   var cv=document.createElement('canvas');cv.width=160;cv.height=48;
   var x=cv.getContext('2d');
-  x.font='bold 28px monospace';x.fillStyle=c;x.globalAlpha=0.5;
+  x.font='bold 28px monospace';x.fillStyle=c;x.globalAlpha=0.7;
   x.textAlign='center';x.textBaseline='middle';x.fillText(t,80,24);
   var s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false}));
   s.position.copy(p);s.scale.set(1.4,0.5,1);return s;
 }
-scene.add(mkELb('Xe','#ff8888',new THREE.Vector3(8,0,0)));
-scene.add(mkELb('Ye','#88ee88',new THREE.Vector3(0,0,8)));
-scene.add(mkELb('Ze','#88aaff',new THREE.Vector3(0,-8,0)));
+scene.add(mkELb('Xe','#ff9999',new THREE.Vector3(8,0,0)));
+scene.add(mkELb('Ye','#99ff99',new THREE.Vector3(0,0,8)));
+scene.add(mkELb('Ze','#99bbff',new THREE.Vector3(0,-8,0)));
 
 // ===== FORCE ARROWS =====
 function mkF(c,th,ei,op){
@@ -368,6 +373,14 @@ var oT=0.7,oP=0.55,oR=22,tT=0.7,tP=0.55,tR=22,isDrg=false,autoR=true,lm={x:0,y:0
 window.setView=function(t,p,r){tT=t;tP=p;tR=r;autoR=false;document.getElementById('hint').style.opacity='0';};
 window.zoomIn=function(){tR=Math.max(8,tR-4);autoR=false;document.getElementById('hint').style.opacity='0';};
 window.zoomOut=function(){tR=Math.min(45,tR+4);autoR=false;document.getElementById('hint').style.opacity='0';};
+
+// Toggle visibility state
+var showF=true, showM=true, showR=true;
+window.tog=function(which){
+  if(which==='f'){showF=!showF;document.getElementById('tbF').classList.toggle('active',showF);}
+  if(which==='m'){showM=!showM;document.getElementById('tbM').classList.toggle('active',showM);}
+  if(which==='r'){showR=!showR;document.getElementById('tbR').classList.toggle('active',showR);}
+};
 var cv=R.domElement;
 cv.addEventListener('mousedown',function(e){isDrg=true;autoR=false;lm={x:e.clientX,y:e.clientY};document.getElementById('hint').style.opacity='0';});
 cv.addEventListener('mousemove',function(e){if(!isDrg)return;oT-=(e.clientX-lm.x)*0.005;oP=Math.max(0.1,Math.min(Math.PI-0.1,oP-(e.clientY-lm.y)*0.005));tT=oT;tP=oP;lm={x:e.clientX,y:e.clientY};});
@@ -482,6 +495,12 @@ function loop(){
 
   // Moments
   mRo.upd(f.Lm);mPi.upd(f.Mm);mYa.upd(f.Nm);
+
+  // Visibility toggles
+  aLift.visible=showF; aWeight.visible=showF; aThrust.visible=showF;
+  aDrag.visible=showF; aSide.visible=showF; aTailL.visible=showF;
+  mRo.g.visible=showM; mPi.g.visible=showM; mYa.g.visible=showM;
+  aLV.visible=showR; aLH.visible=showR; aWP.visible=showR; aWA.visible=showR;
 
   // CG pulse
   cgR.rotation.x=t*0.5;cgR.rotation.z=t*0.3;
