@@ -340,33 +340,63 @@ var aLH=mkF(0x88eeff,0.032,0.3,0.65);scene.add(aLH);
 var aWP=mkF(0xffe088,0.032,0.3,0.65);ori(aWP,new THREE.Vector3(0,-1,0));aWP.position.copy(CG);ac.add(aWP);
 var aWA=mkF(0xffe088,0.032,0.3,0.65);ori(aWA,new THREE.Vector3(-1,0,0));aWA.position.copy(CG);ac.add(aWA);
 
-// ===== MOMENT ARCS =====
-function MA(c,av){
-  this.av=av.clone().normalize();this.g=new THREE.Group();this.g.position.copy(CG);
+// ===== MOMENT ARCS — PAIRED, same direction, 180° apart =====
+function MArc(c,av,pos,radius,startAngle){
+  this.av=av.clone().normalize();
+  this.g=new THREE.Group();
+  this.g.position.copy(pos);
+  this.radius=radius||1.8;
+  this.startAngle=startAngle||0; // offset in radians
   this.mt=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:0.5});
   this.am=null;
-  this.tp=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.3,6),this.mt.clone());
+  this.tp=new THREE.Mesh(new THREE.ConeGeometry(0.10,0.25,6),this.mt.clone());
   this.tp.visible=false;this.g.add(this.tp);
-  var up=new THREE.Vector3(0,1,0);if(Math.abs(this.av.dot(up))>0.9)up=new THREE.Vector3(1,0,0);
+  var up=new THREE.Vector3(0,1,0);
+  if(Math.abs(this.av.dot(up))>0.9)up=new THREE.Vector3(1,0,0);
   this.u=new THREE.Vector3().crossVectors(this.av,up).normalize();
   this.v=new THREE.Vector3().crossVectors(this.av,this.u).normalize();
 }
-MA.prototype.upd=function(val){
-  var ab=Math.abs(val),nm=Math.min(1,ab/3),sw=nm*Math.PI*1.8;
+MArc.prototype.upd=function(val){
+  var ab=Math.abs(val),nm=Math.min(1,ab/3),sw=nm*Math.PI*1.2;
   if(this.am){this.g.remove(this.am);this.am.geometry.dispose();this.am=null;}
   if(nm<0.01){this.tp.visible=false;return;}
-  var d=val>0?1:-1,r=1.4,sg=Math.max(6,Math.floor(sw*10)),pts=[];
-  for(var i=0;i<=sg;i++){var a=(i/sg)*sw*d,p=new THREE.Vector3();p.addScaledVector(this.u,Math.cos(a)*r);p.addScaledVector(this.v,Math.sin(a)*r);pts.push(p);}
-  this.am=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),sg,0.04,6,false),this.mt);
+  var d=val>0?1:-1,r=this.radius,s0=this.startAngle;
+  var sg=Math.max(4,Math.floor(sw*8)),pts=[];
+  for(var i=0;i<=sg;i++){
+    var a=s0+(i/sg)*sw*d;
+    var p=new THREE.Vector3();
+    p.addScaledVector(this.u,Math.cos(a)*r);
+    p.addScaledVector(this.v,Math.sin(a)*r);
+    pts.push(p);
+  }
+  this.am=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),sg,0.035,6,false),this.mt);
   this.g.add(this.am);
-  var ea=sw*d;this.tp.visible=true;
-  var tp2=new THREE.Vector3();tp2.addScaledVector(this.u,Math.cos(ea)*r);tp2.addScaledVector(this.v,Math.sin(ea)*r);this.tp.position.copy(tp2);
-  var tn=new THREE.Vector3();tn.addScaledVector(this.u,-Math.sin(ea)*d);tn.addScaledVector(this.v,Math.cos(ea)*d);tn.normalize();
+  var ea=s0+sw*d;this.tp.visible=true;
+  var tp2=new THREE.Vector3();
+  tp2.addScaledVector(this.u,Math.cos(ea)*r);
+  tp2.addScaledVector(this.v,Math.sin(ea)*r);
+  this.tp.position.copy(tp2);
+  var tn=new THREE.Vector3();
+  tn.addScaledVector(this.u,-Math.sin(ea)*d);
+  tn.addScaledVector(this.v,Math.cos(ea)*d);
+  tn.normalize();
   this.tp.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),tn);
 };
-var mRo=new MA(0xff4455,new THREE.Vector3(1,0,0));ac.add(mRo.g);
-var mPi=new MA(0x44dd55,new THREE.Vector3(0,0,1));ac.add(mPi.g);
-var mYa=new MA(0x4499ff,new THREE.Vector3(0,-1,0));ac.add(mYa.g);
+
+// Roll (L) — two arcs at CG, around X body, starting 0° and 180°, SAME direction
+var mRo1=new MArc(0xff4455,new THREE.Vector3(1,0,0),CG,2.8,0);
+var mRo2=new MArc(0xff4455,new THREE.Vector3(1,0,0),CG,2.8,Math.PI);
+ac.add(mRo1.g);ac.add(mRo2.g);
+
+// Pitch (M) — two arcs at CG, around Y body (three.js +Z), 0° and 180°
+var mPi1=new MArc(0x44dd55,new THREE.Vector3(0,0,1),CG,2.8,0);
+var mPi2=new MArc(0x44dd55,new THREE.Vector3(0,0,1),CG,2.8,Math.PI);
+ac.add(mPi1.g);ac.add(mPi2.g);
+
+// Yaw (N) — two arcs at CG, around Z body (three.js -Y), 0° and 180°
+var mYa1=new MArc(0x4499ff,new THREE.Vector3(0,-1,0),CG,2.8,0);
+var mYa2=new MArc(0x4499ff,new THREE.Vector3(0,-1,0),CG,2.8,Math.PI);
+ac.add(mYa1.g);ac.add(mYa2.g);
 
 // ===== CAMERA =====
 var oT=0.7,oP=0.55,oR=22,tT=0.7,tP=0.55,tR=22,isDrg=false,autoR=true,lm={x:0,y:0};
@@ -428,7 +458,7 @@ function phys(p,r,y,t){
   var n=1/Math.max(0.15,cr*cp);
   return{lift:n,wt:1,thr:T,drg:0.12+T*0.4+(n-1)*0.3,n:n,
     sf:y*0.012,tl:-p*0.025,
-    Lm:r*0.06,Mm:p*0.05+(T-0.5)*0.02,Nm:y*0.06+r*0.02,
+    Lm:r*0.03,Mm:p*0.025+(T-0.5)*0.01,Nm:y*0.03+r*0.01,
     lV:n*cr,lH:n*Math.abs(sr),wP:cp,wA:Math.abs(sp)};
 }
 
@@ -493,13 +523,17 @@ function loop(){
   aWP.userData.setLen(f.wP*FS);
   aWA.userData.setLen(f.wA*FS);
 
-  // Moments
-  mRo.upd(f.Lm);mPi.upd(f.Mm);mYa.upd(f.Nm);
+  // Moments — paired arcs, same direction, 180° apart
+  mRo1.upd(f.Lm); mRo2.upd(f.Lm);
+  mPi1.upd(f.Mm); mPi2.upd(f.Mm);
+  mYa1.upd(f.Nm); mYa2.upd(f.Nm);
 
   // Visibility toggles
   aLift.visible=showF; aWeight.visible=showF; aThrust.visible=showF;
   aDrag.visible=showF; aSide.visible=showF; aTailL.visible=showF;
-  mRo.g.visible=showM; mPi.g.visible=showM; mYa.g.visible=showM;
+  mRo1.g.visible=showM; mRo2.g.visible=showM;
+  mPi1.g.visible=showM; mPi2.g.visible=showM;
+  mYa1.g.visible=showM; mYa2.g.visible=showM;
   aLV.visible=showR; aLH.visible=showR; aWP.visible=showR; aWA.visible=showR;
 
   // CG pulse
