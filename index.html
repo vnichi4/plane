@@ -53,6 +53,8 @@
   <button class="vb active" id="tbF" onclick="tog('f')">FORCES</button>
   <button class="vb active" id="tbM" onclick="tog('m')">MOMENTS</button>
   <button class="vb active" id="tbR" onclick="tog('r')">RESOLVED</button>
+  <button class="vb active" id="tbP" onclick="tog('p')">PATH</button>
+  <button class="vb" onclick="clearPath()">CLEAR</button>
 </div>
 
 <div class="p tl">
@@ -109,6 +111,7 @@
   <div class="li"><span class="ld" style="background:#dd88ff"></span>Sideforce (fin)</div>
   <div class="li"><span class="ld" style="background:#ff9966"></span>Tail lift</div>
   <div class="li"><span style="width:8px;height:8px;border-radius:50%;background:#ffdd00;flex-shrink:0"></span>CG</div>
+  <div class="li"><span class="ld" style="background:#ffcc44"></span>Flight path</div>
 </div>
 
 <div class="ht" id="hint">drag to orbit · scroll to zoom · W/S A/D Q/E Shift/Ctrl</div>
@@ -405,12 +408,14 @@ window.zoomIn=function(){tR=Math.max(8,tR-4);autoR=false;document.getElementById
 window.zoomOut=function(){tR=Math.min(45,tR+4);autoR=false;document.getElementById('hint').style.opacity='0';};
 
 // Toggle visibility state
-var showF=true, showM=true, showR=true;
+var showF=true, showM=true, showR=true, showP=true;
 window.tog=function(which){
   if(which==='f'){showF=!showF;document.getElementById('tbF').classList.toggle('active',showF);}
   if(which==='m'){showM=!showM;document.getElementById('tbM').classList.toggle('active',showM);}
   if(which==='r'){showR=!showR;document.getElementById('tbR').classList.toggle('active',showR);}
+  if(which==='p'){showP=!showP;document.getElementById('tbP').classList.toggle('active',showP);}
 };
+window.clearPath=function(){ trailPts=[]; trailCount=0; trailGeo.setDrawRange(0,0); };
 var cv=R.domElement;
 cv.addEventListener('mousedown',function(e){isDrg=true;autoR=false;lm={x:e.clientX,y:e.clientY};document.getElementById('hint').style.opacity='0';});
 cv.addEventListener('mousemove',function(e){if(!isDrg)return;oT-=(e.clientX-lm.x)*0.005;oP=Math.max(0.1,Math.min(Math.PI-0.1,oP-(e.clientY-lm.y)*0.005));tT=oT;tP=oP;lm={x:e.clientX,y:e.clientY};});
@@ -434,7 +439,7 @@ sP.oninput=function(e){C.p=+e.target.value;ud();};
 sR.oninput=function(e){C.r=+e.target.value;ud();};
 sY.oninput=function(e){C.y=+e.target.value;ud();};
 sT.oninput=function(e){C.t=+e.target.value;ud();};
-document.getElementById('resetBtn').onclick=function(){C.p=C.r=C.y=C.t=0;A.p=A.r=A.y=0;sP.value=sR.value=sY.value=sT.value=0;ud();autoR=true;tT=0.7;tP=0.55;tR=22;document.getElementById('hint').style.opacity='1';};
+document.getElementById('resetBtn').onclick=function(){C.p=C.r=C.y=C.t=0;A.p=A.r=A.y=0;sP.value=sR.value=sY.value=sT.value=0;ud();autoR=true;tT=0.7;tP=0.55;tR=22;acPos.set(0,0,0);ac.position.set(0,0,0);speed=0;trailPts=[];trailCount=0;trailGeo.setDrawRange(0,0);document.getElementById('hint').style.opacity='1';};
 var K={};
 window.onkeydown=function(e){K[e.key.toLowerCase()]=true;if(e.key==='Shift'||e.key==='Control')e.preventDefault();};
 window.onkeyup=function(e){K[e.key.toLowerCase()]=false;};
@@ -462,6 +467,24 @@ function phys(p,r,y,t){
     lV:n*cr,lH:n*Math.abs(sr),wP:cp,wA:Math.abs(sp)};
 }
 
+// ===== TRAJECTORY TRAIL =====
+var MAX_TRAIL = 3000;
+var trailPts = [];
+var trailCount = 0;
+var trailGeo = new THREE.BufferGeometry();
+var trailPositions = new Float32Array(MAX_TRAIL * 3);
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+trailGeo.setDrawRange(0, 0);
+var trailMat = new THREE.LineBasicMaterial({color:0xffcc44, transparent:true, opacity:0.6});
+var trailLine = new THREE.Line(trailGeo, trailMat);
+scene.add(trailLine);
+
+// Aircraft world position & velocity
+var acPos = new THREE.Vector3(0,0,0);
+var speed = 0; // current forward speed
+var SPEED_SCALE = 0.06; // how fast it moves per frame at 100% thrust
+var trailTimer = 0;
+
 // ===== ANIMATE =====
 var clk=new THREE.Clock();
 function loop(){
@@ -470,7 +493,35 @@ function loop(){
   kb();
 
   A.p+=(C.p-A.p)*SM; A.r+=(C.r-A.r)*SM; A.y+=(C.y-A.y)*SM;
-  ac.quaternion.setFromEuler(new THREE.Euler(-A.r*Math.PI/180,-A.y*Math.PI/180,-A.p*Math.PI/180,'YZX'));
+  ac.quaternion.setFromEuler(new THREE.Euler(A.r*Math.PI/180,-A.y*Math.PI/180,A.p*Math.PI/180,'YZX'));
+
+  // === FLIGHT PATH — move aircraft through space ===
+  // Forward direction = body +X in world space
+  var fwd = new THREE.Vector3(1,0,0);
+  fwd.applyQuaternion(ac.quaternion);
+
+  // Speed ramps with thrust
+  speed += (C.t/100 * SPEED_SCALE - speed) * 0.05;
+
+  // Move aircraft
+  if(speed > 0.001){
+    acPos.addScaledVector(fwd, speed);
+    // Gravity: slight downward pull when not enough vertical lift
+    var liftUp = fwd.y * speed * 0.3; // vertical component of velocity
+    acPos.y += (liftUp - 0.002) * 0.5; // gravity vs lift
+  }
+  ac.position.copy(acPos);
+
+  // Record trail point every few frames
+  trailTimer++;
+  if(speed > 0.001 && trailTimer % 3 === 0 && trailCount < MAX_TRAIL){
+    trailPositions[trailCount*3]   = acPos.x;
+    trailPositions[trailCount*3+1] = acPos.y;
+    trailPositions[trailCount*3+2] = acPos.z;
+    trailCount++;
+    trailGeo.attributes.position.needsUpdate = true;
+    trailGeo.setDrawRange(0, trailCount);
+  }
 
   // === CONTROL SURFACE DEFLECTIONS ===
   // All surfaces: hinge at leading edge, mesh behind it (offset -X).
@@ -564,11 +615,16 @@ function loop(){
   document.getElementById('mN').textContent=f.Nm.toFixed(2);
   document.getElementById('nZ').innerHTML=f.n.toFixed(2)+'<span class="u">G</span>';
 
-  // Camera smooth
+  // Camera smooth — follows aircraft
   if(autoR){tT+=0.0015;oT=tT;}
   oT+=(tT-oT)*0.08;oP+=(tP-oP)*0.08;oR+=(tR-oR)*0.08;
-  cam.position.set(oR*Math.sin(oP)*Math.cos(oT),oR*Math.cos(oP),oR*Math.sin(oP)*Math.sin(oT));
-  cam.lookAt(0,0,0);
+  cam.position.set(
+    acPos.x + oR*Math.sin(oP)*Math.cos(oT),
+    acPos.y + oR*Math.cos(oP),
+    acPos.z + oR*Math.sin(oP)*Math.sin(oT)
+  );
+  cam.lookAt(acPos);
+  trailLine.visible = showP;
   R.render(scene,cam);
 }
 loop();
